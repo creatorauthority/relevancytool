@@ -5,8 +5,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 import plotly.graph_objects as go
-from fpdf import FPDF
-import base64
 import requests
 from datetime import datetime, timedelta
 import re 
