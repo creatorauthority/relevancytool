@@ -1,5 +1,5 @@
 import streamlit as st
-from icecream import ic 
+# from icecream import ic 
 from litellm import completion
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -99,7 +99,7 @@ def get_base_averages(posts):
 
 
 def get_creator_profile(linkedin_url):    
-    ic("whats the happs ",linkedin_url)
+    ("whats the happs ",linkedin_url)
 
     url = "https://fresh-linkedin-profile-data.p.rapidapi.com/get-linkedin-profile"
 
@@ -112,7 +112,7 @@ def get_creator_profile(linkedin_url):
 
     response = requests.get(url, headers=headers, params=querystring)
 
-    ic("profile data",response.json())
+    ("profile data",response.json())
     return response.json()
 
 def get_creator_posts(linkedin_url):
@@ -132,7 +132,7 @@ def get_creator_posts(linkedin_url):
 
     with open('response.json', 'w') as f:
         json.dump(response.json(), f)
-    ic(response.json)
+    (response.json)
     return response.json()
 
 
@@ -198,7 +198,7 @@ def get_matching_posts(posts, item):
     with ThreadPoolExecutor() as executor:
         matching_posts = list(filter(None, executor.map(process_post, posts["data"])))
 
-    ic(matching_posts)
+    (matching_posts)
     # Transforming the keys
     totals = {
         "avg_" + key.split('_')[1]: value for key, value in totals.items()
@@ -278,7 +278,6 @@ def calculate_guage_score(base_averages, topic_averages):
                  ""","role": "user"}]
     response = completion(model="gpt-4", messages=messages, max_tokens=2, temperature=0)
     score = int(response["choices"][0]["message"]["content"])
-    ic(score)
     return score
 
 # need to use the score 
@@ -329,9 +328,9 @@ def main():
         base_averages = get_base_averages(posts)
 
         # Calculate creator authority score for each set of averages
-        brand_averages = ic(calculate_creator_authority_score(brand_averages))
-        topic_averages = ic(calculate_creator_authority_score(topic_averages))
-        base_averages = ic(calculate_creator_authority_score(base_averages))
+        brand_averages = (calculate_creator_authority_score(brand_averages))
+        topic_averages = (calculate_creator_authority_score(topic_averages))
+        base_averages = (calculate_creator_authority_score(base_averages))
 
         # Display the content from the response
         brand_analysis = statistics_comparison(brand_averages, base_averages, brand)
@@ -347,8 +346,8 @@ def main():
         chart = create_comparison_chart(topic_averages, brand_averages, base_averages)
 
         # Calculate gauge scores for topic and brand
-        topic_gauge_score = ic(calculate_guage_score(base_averages, topic_averages))
-        brand_gauge_score = ic(calculate_guage_score(base_averages, brand_averages))
+        topic_gauge_score = (calculate_guage_score(base_averages, topic_averages))
+        brand_gauge_score = (calculate_guage_score(base_averages, brand_averages))
 
         # Create gauge charts
         topic_gauge_chart = create_gauge_chart(topic_gauge_score, "Topic Score")
