@@ -1,5 +1,4 @@
 import streamlit as st
-# from icecream import ic 
 from litellm import completion
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,7 +8,7 @@ import requests
 from datetime import datetime, timedelta
 import re 
 import json
-#todo keys for openrouter
+import os
 load_dotenv()
 
 
@@ -19,7 +18,6 @@ def calculate_avg_metric(posts_data, metric):
         count = len(posts_data)
         return total / count if count else 0
     except KeyError as e:
-        print(f"Key error: {e}")
         return 0
 
 
@@ -62,7 +60,6 @@ def calculate_time_period(posts_data):
             return (max(dates) - min(dates)).days
         return 0  # Default value if no dates are available
     except KeyError as e:
-        print(f"Key error: {e}")
         return 0
 
 
@@ -71,11 +68,9 @@ def calculate_avg_post_frequency(posts_data, time_period_in_days):
         count_of_posts = len(posts_data)  # Directly using posts_data length
         return count_of_posts / time_period_in_days if time_period_in_days > 0 else 0
     except KeyError as e:
-        print(f"Key error: {e}")
         return 0
 
 def calculate_creator_authority_score(profile_data, posts_data):
-    # Adjusted to use 'connections_count' for followers
     followers = profile_data.get('data', {}).get('followers_count', 0)
     avg_likes = calculate_avg_metric(posts_data, 'num_likes')
     return followers * avg_likes
@@ -97,26 +92,21 @@ def get_base_averages(posts):
 
 
 def get_creator_profile(linkedin_url):    
-    ("whats the happs ",linkedin_url)
 
     url = "https://fresh-linkedin-profile-data.p.rapidapi.com/get-linkedin-profile"
 
     querystring = {"linkedin_url":linkedin_url,"include_skills":"false"}
 
     headers = {
-        "X-RapidAPI-Key": "ceee9e8856msh9c25f0f9c7f4b82p1a83d6jsnb3be0c53973a",
+        "X-RapidAPI-Key": os.getenv('SCRAPER_API_KEY'),
         "X-RapidAPI-Host": "fresh-linkedin-profile-data.p.rapidapi.com"
     }
 
     response = requests.get(url, headers=headers, params=querystring)
 
-    ("profile data",response.json())
     return response.json()
 
 def get_creator_posts(linkedin_url):
-    # with open('/Users/saminyasar/IdeaProjects/research-agents-3.0/CreatorAuthority/data/example_posts.json', 'r') as file:
-    #     profile_data = json.load(file)
-    # return profile_data
     url = "https://fresh-linkedin-profile-data.p.rapidapi.com/get-profile-posts"
 
     querystring = {"linkedin_url":linkedin_url,"type":"posts"}
@@ -130,7 +120,6 @@ def get_creator_posts(linkedin_url):
 
     with open('response.json', 'w') as f:
         json.dump(response.json(), f)
-    (response.json)
     return response.json()
 
 
@@ -144,12 +133,10 @@ def calculate_creator_authority_score(averages):
     return averages
 
 def create_comparison_chart(topic_averages, brand_averages, base_averages):
-    # Combine likes, praises, interests, empathy, comments and reposts
     topic_averages['combined_likes'] = topic_averages['avg_likes'] + topic_averages['avg_praises'] + topic_averages['avg_interests'] + topic_averages['avg_empathy'] + topic_averages['avg_comments'] + topic_averages['avg_reposts']
     brand_averages['combined_likes'] = brand_averages['avg_likes'] + brand_averages['avg_praises'] + brand_averages['avg_interests'] + brand_averages['avg_empathy'] + brand_averages['avg_comments'] + brand_averages['avg_reposts']
     base_averages['combined_likes'] = base_averages['avg_likes'] + base_averages['avg_praises'] + base_averages['avg_interests'] + base_averages['avg_empathy'] + base_averages['avg_comments'] + base_averages['avg_reposts']
     
-    # Convert to DataFrame
     data = {
         'Topic averages': [topic_averages['combined_likes'], topic_averages['avg_comments'], topic_averages['avg_reposts'], topic_averages['creator_authority_score']],
         'Brand Averages': [brand_averages['combined_likes'], brand_averages['avg_comments'], brand_averages['avg_reposts'], brand_averages['creator_authority_score']],
@@ -157,11 +144,9 @@ def create_comparison_chart(topic_averages, brand_averages, base_averages):
     }
     df = pd.DataFrame(data, index=['Combined Likes', 'Comments', 'Reposts', 'Creator Authority Score'])
     
-    # Plotting
     fig, ax = plt.subplots()
     df.plot(kind='bar', ax=ax)
 
-    # Set labels and title
     ax.set_ylabel('Values')
     ax.set_title('Statistical overview')
 
@@ -196,8 +181,6 @@ def get_matching_posts(posts, item):
     with ThreadPoolExecutor() as executor:
         matching_posts = list(filter(None, executor.map(process_post, posts["data"])))
 
-    (matching_posts)
-    # Transforming the keys
     totals = {
         "avg_" + key.split('_')[1]: value for key, value in totals.items()
     }
@@ -206,7 +189,6 @@ def get_matching_posts(posts, item):
 def calculate_averages(matching_posts, totals):
     cat = max(1, len(matching_posts))
     averages = {key: total / cat for key, total in totals.items()}
-    # averages['total_posts'] = len(matching_posts)
     return averages
 
 def analyze_topic_performance(posts, item):
@@ -227,13 +209,6 @@ def statistics_comparison(averages, base_average, item):
 
 def creator_brand_category_analysis(linkedin_url,creator_name,brand,topic):
     posts = get_creator_posts(linkedin_url)
-    # need to do rag on this 
-    # posts_prompt = f"""
-
-    # Summarize this 
-    # {posts}
-    # """
-    # prompt_response_summary = completion(model="gpt-3.5-turbo-16k-0613", messages=posts_prompt)["choices"][0]["message"]["content"]
     
     messages = [{ "content": f""" 
                  
@@ -257,16 +232,11 @@ def creator_brand_category_analysis(linkedin_url,creator_name,brand,topic):
                  
                   ""","role": "user"}]
     
-    # can i use regular gpt in this? 
     response = completion(model="gpt-4", messages=messages)
     report = response
     return report["choices"][0]["message"]["content"]
     
 
-# need to give them a score out of 100 
-# this score will be based on the x averge vs base agerage 
-# how -> give gpt both averages and ask for a score 
-# parse that score and run the method 
 def calculate_guage_score(base_averages, topic_averages):
     messages = [{ "content": f"""
                 Given the base averages {base_averages} and the topic averages {topic_averages},
@@ -278,7 +248,6 @@ def calculate_guage_score(base_averages, topic_averages):
     score = int(response["choices"][0]["message"]["content"])
     return score
 
-# need to use the score 
 def get_guage_score_analysis(base_averages, topic_averages, score, summary):
     messages = [{ "content": f"You are an expert influencer marketing analyst. Given the base averages {base_averages} and the topic averages {topic_averages} and score {score} please write one sentence on why this seems likely use this summary for more content {summary} , ","role": "user"}]
     response = completion(model="gpt-4", messages=messages)
@@ -316,21 +285,17 @@ def main():
     creator_name = st.text_input('Enter Creator Name')
 
     if st.button('Analyze'):
-        # get the posts 
         posts = get_creator_posts(linkedin_url)
         profile = get_creator_profile(linkedin_url)
-        # not sure what they are expecting? are they expecting an array of posts?
 
         brand_matching_posts, brand_averages = analyze_topic_performance(posts, brand)
         topic_matching_posts, topic_averages = analyze_topic_performance(posts, topic)
         base_averages = get_base_averages(posts)
 
-        # Calculate creator authority score for each set of averages
         brand_averages = (calculate_creator_authority_score(brand_averages))
         topic_averages = (calculate_creator_authority_score(topic_averages))
         base_averages = (calculate_creator_authority_score(base_averages))
 
-        # Display the content from the response
         brand_analysis = statistics_comparison(brand_averages, base_averages, brand)
         topic_analysis = statistics_comparison(topic_averages, topic_averages, topic)
 
@@ -340,18 +305,14 @@ def main():
         st.title('Topic Analysis Results')
         st.write(f'Response: {topic_analysis}')
 
-        # Create the chart
         chart = create_comparison_chart(topic_averages, brand_averages, base_averages)
 
-        # Calculate gauge scores for topic and brand
         topic_gauge_score = (calculate_guage_score(base_averages, topic_averages))
         brand_gauge_score = (calculate_guage_score(base_averages, brand_averages))
 
-        # Create gauge charts
         topic_gauge_chart = create_gauge_chart(topic_gauge_score, "Topic Score")
         brand_gauge_chart = create_gauge_chart(brand_gauge_score, "Brand Score")
 
-        # Display the gauge charts in Streamlit along with the appropriate score analysis
         st.title('Topic Gauge Score')
         st.plotly_chart(topic_gauge_chart)
         topic_score_analysis = get_guage_score_analysis(base_averages, topic_averages, topic_gauge_score, topic_analysis)
@@ -362,10 +323,8 @@ def main():
         brand_score_analysis = get_guage_score_analysis(base_averages, brand_averages, brand_gauge_score, brand_analysis)
         st.write(f'Brand Score Analysis: {brand_score_analysis}')
 
-        # Display the chart in Streamlit
         st.pyplot(chart)
 
-        # Display the averages and base_averages
         st.title('Average Statistics')
         
         st.write('Brand Averages:')
@@ -376,47 +335,9 @@ def main():
         st.json(base_averages)
 
         st.title('Overall Executive report')
-        # Report 
         report = creator_brand_category_analysis(linkedin_url,creator_name,brand,topic)
         st.write(report)
-
-        # Create a PDF report
-        # pdf = FPDF()
-        # pdf.add_page()
-        # pdf.set_font("Arial", size = 15)
-        # pdf.cell(200, 10, txt = "LinkedIn Stats Analyzer Report", ln = True, align = 'C')
-        # pdf.cell(200, 10, txt = f"LinkedIn URL: {linkedin_url}", ln = True)
-        # pdf.cell(200, 10, txt = f"Topic: {topic}", ln = True)
-        # pdf.cell(200, 10, txt = f"Brand: {brand}", ln = True)
-        # pdf.cell(200, 10, txt = f"Creator Name: {creator_name}", ln = True)
-        # pdf.cell(200, 10, txt = f"Brand Analysis Results: {brand_analysis}", ln = True)
-        # pdf.cell(200, 10, txt = f"Topic Analysis Results: {topic_analysis}", ln = True)
-        # pdf.cell(200, 10, txt = f"Topic Score Analysis: {topic_score_analysis}", ln = True)
-        # pdf.cell(200, 10, txt = f"Brand Score Analysis: {brand_score_analysis}", ln = True)
-        # pdf.cell(200, 10, txt = f"Average Statistics: Brand Averages: {brand_averages}, Topic Averages: {topic_averages}, Base Averages: {base_averages}", ln = True)
-        # pdf.cell(200, 10, txt = f"Overall Executive report: {report}", ln = True)
-        
-        # Save the charts as images and add them to the PDF
-        # chart.savefig("chart.png")
-        # pdf.image("chart.png", x = 10, y = 130, w = 100)
-        # # topic_gauge_chart.savefig("topic_gauge_chart.png")
-        # pdf.image("topic_gauge_chart.png", x = 10, y = 200, w = 100)
-        # # brand_gauge_chart.savefig("brand_gauge_chart.png")
-        # pdf.image("brand_gauge_chart.png", x = 110, y = 200, w = 100)
-        
-        # pdf.output("LinkedIn_Stats_Analyzer_Report.pdf")
-
-        # if st.button('Download Report'):
-        #     with open("LinkedIn_Stats_Analyzer_Report.pdf", "rb") as f:
-        #         bytes = f.read()
-        #         b64 = base64.b64encode(bytes).decode()
-        #         href = f'<a href="data:file/pdf;base64,{b64}" download=\'LinkedIn_Stats_Analyzer_Report.pdf\'>Click to download your report</a>'
-        #         st.markdown(href, unsafe_allow_html=True)
-
 
 
 if __name__ == "__main__":
     main()
-
-
-
