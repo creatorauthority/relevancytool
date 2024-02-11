@@ -229,10 +229,12 @@ def creator_brand_category_analysis(linkedin_url,creator_name,brand,topic):
                 Creator: {creator_name}
                 Brand: {brand}
                 Topic: {topic}
-                 
+                Incorporate example links as reference/supporting data to reinforce the statements
+                Posts: 
+                {posts}
                   ""","role": "user"}]
     
-    response = completion(model="gpt-4", messages=messages)
+    response = completion(model="openrouter/openai/gpt-4-32k", messages=messages)
     report = response
     return report["choices"][0]["message"]["content"]
     
@@ -279,61 +281,49 @@ def create_gauge_chart(score, title):
 
 def main():
     st.title('LinkedIn Stats Analyzer')
-    linkedin_url = st.text_input('Enter LinkedIn URL')
-    topic = st.text_input('Enter Topic')
-    brand = st.text_input('Enter Brand')
-    creator_name = st.text_input('Enter Creator Name')
+    linkedin_url = st.text_input('Enter LinkedIn URL', value='', key=None, type='default')
+    topic = st.text_input('Enter Topic (optional)', value='', key=None, type='default')
+    brand = st.text_input('Enter Brand (optional)', value='', key=None, type='default')
+    creator_name = st.text_input('Enter Creator Name (optional)', value='', key=None, type='default')
 
-    if st.button('Analyze'):
+    if linkedin_url and (topic or brand) and st.button('Analyze'):
         posts = get_creator_posts(linkedin_url)
         profile = get_creator_profile(linkedin_url)
-
-        brand_matching_posts, brand_averages = analyze_topic_performance(posts, brand)
-        topic_matching_posts, topic_averages = analyze_topic_performance(posts, topic)
         base_averages = get_base_averages(posts)
 
-        brand_averages = (calculate_creator_authority_score(brand_averages))
-        topic_averages = (calculate_creator_authority_score(topic_averages))
-        base_averages = (calculate_creator_authority_score(base_averages))
+        if brand:
+            brand_matching_posts, brand_averages = analyze_topic_performance(posts, brand)
+            brand_averages = calculate_creator_authority_score(brand_averages)
+            brand_analysis = statistics_comparison(brand_averages, base_averages, brand)
+            st.title('Brand Analysis Results')
+            st.write(f'Response: {brand_analysis}')
+            brand_gauge_score = calculate_guage_score(base_averages, brand_averages)
+            brand_gauge_chart = create_gauge_chart(brand_gauge_score, "Brand Score")
+            st.title('Brand Gauge Score')
+            st.plotly_chart(brand_gauge_chart)
+            brand_score_analysis = get_guage_score_analysis(base_averages, brand_averages, brand_gauge_score, brand_analysis)
+            st.write(f'Brand Score Analysis: {brand_score_analysis}')
+            st.write('Brand Averages:')
+            st.json(brand_averages)
 
-        brand_analysis = statistics_comparison(brand_averages, base_averages, brand)
-        topic_analysis = statistics_comparison(topic_averages, topic_averages, topic)
-
-        st.title('Brand Analysis Results')
-        st.write(f'Response: {brand_analysis}')
-
-        st.title('Topic Analysis Results')
-        st.write(f'Response: {topic_analysis}')
-
-        chart = create_comparison_chart(topic_averages, brand_averages, base_averages)
-
-        topic_gauge_score = (calculate_guage_score(base_averages, topic_averages))
-        brand_gauge_score = (calculate_guage_score(base_averages, brand_averages))
-
-        topic_gauge_chart = create_gauge_chart(topic_gauge_score, "Topic Score")
-        brand_gauge_chart = create_gauge_chart(brand_gauge_score, "Brand Score")
-
-        st.title('Topic Gauge Score')
-        st.plotly_chart(topic_gauge_chart)
-        topic_score_analysis = get_guage_score_analysis(base_averages, topic_averages, topic_gauge_score, topic_analysis)
-        st.write(f'Topic Score Analysis: {topic_score_analysis}')
-
-        st.title('Brand Gauge Score')
-        st.plotly_chart(brand_gauge_chart)
-        brand_score_analysis = get_guage_score_analysis(base_averages, brand_averages, brand_gauge_score, brand_analysis)
-        st.write(f'Brand Score Analysis: {brand_score_analysis}')
-
-        st.pyplot(chart)
+        if topic:
+            topic_matching_posts, topic_averages = analyze_topic_performance(posts, topic)
+            topic_averages = calculate_creator_authority_score(topic_averages)
+            topic_analysis = statistics_comparison(topic_averages, base_averages, topic)
+            st.title('Topic Analysis Results')
+            st.write(f'Response: {topic_analysis}')
+            topic_gauge_score = calculate_guage_score(base_averages, topic_averages)
+            topic_gauge_chart = create_gauge_chart(topic_gauge_score, "Topic Score")
+            st.title('Topic Gauge Score')
+            st.plotly_chart(topic_gauge_chart)
+            topic_score_analysis = get_guage_score_analysis(base_averages, topic_averages, topic_gauge_score, topic_analysis)
+            st.write(f'Topic Score Analysis: {topic_score_analysis}')
+            st.write('Topic Averages:')
+            st.json(topic_averages)
 
         st.title('Average Statistics')
-        
-        st.write('Brand Averages:')
-        st.json(brand_averages)
-        st.write('Topic Averages:')
-        st.json(topic_averages)
         st.write('Base Averages:')
         st.json(base_averages)
-
         st.title('Overall Executive report')
         report = creator_brand_category_analysis(linkedin_url,creator_name,brand,topic)
         st.write(report)
