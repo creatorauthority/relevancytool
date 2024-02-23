@@ -237,14 +237,75 @@ def creator_brand_category_analysis(linkedin_url,creator_name,brand,topic):
     response = completion(model="openrouter/openai/gpt-4-32k", messages=messages)
     report = response
     return report["choices"][0]["message"]["content"]
+
+def creator_topic_analysis(tagged_matching_posts, averages, topic, creator_name):
     
+    messages = [{ "content": f""" 
+                 
+                You are Harvey. An experienced marketing strategist specializing in content creation and campaign planning.
+                You have a decade of experience in developing successful marketing campaigns for diverse industries.
+                Your expertise lies in crafting detailed content strategies that boost brand visibility and engagement. 
+                This is to sponsor thier LinkedIn based content so use that framing. 
+
+                Your objective is to determine if this creator would be a good fit for this brand to sponsor.
+                I have given you the creator's recent posts as well as their analytics. 
+                Please use statistics and numbers to draw conclusions and show me. 
+
+                Think step by step 
+                Everything you say should relate to why the creator would or would not be a good fit for topic
+                Your statements should be backed by data and evidence from the posts. Use links and stats to give a data rich analysis 
+                 
+                Be direct and opinionated.
+
+                Creator: {creator_name}
+                Topic: {topic}
+                posts: {tagged_matching_posts}
+                averages: {averages}
+                Incorporate example links as reference/supporting data to reinforce the statements
+                Posts: 
+                  ""","role": "user"}]
+    
+    response = completion(model="openrouter/openai/gpt-4-32k", messages=messages)
+    report = response
+    return report["choices"][0]["message"]["content"]
+
+def creator_brand_analysis(tagged_matching_posts, averages, brand, creator_name):
+    
+    messages = [{ "content": f""" 
+                 
+                You are Harvey. An experienced marketing strategist specializing in content creation and campaign planning.
+                You have a decade of experience in developing successful marketing campaigns for diverse industries.
+                Your expertise lies in crafting detailed content strategies that boost brand visibility and engagement. 
+                This is to sponsor thier LinkedIn based content so use that framing. 
+
+                Your objective is to determine if this creator would be a good fit for this brand to sponsor.
+                I have given you the creator's recent posts as well as their analytics. 
+                Please use statistics and numbers to draw conclusions and show me. 
+
+                Think step by step 
+                Everything you say should relate to why the creator would or would not be a good fit for brand
+                Your statements should be backed by data and evidence from the posts. Use links and stats to give a data rich analysis 
+                 
+                Be direct and opinionated.
+
+                Creator: {creator_name}
+                brand: {brand}
+                posts: {tagged_matching_posts}
+                averages: {averages}
+                Incorporate example links as reference/supporting data to reinforce the statements
+                Posts: 
+                  ""","role": "user"}]
+    
+    response = completion(model="openrouter/openai/gpt-4-32k", messages=messages)
+    report = response
+    return report["choices"][0]["message"]["content"]
 
 def calculate_guage_score(base_averages, topic_averages):
     messages = [{ "content": f"""
                 Given the base averages {base_averages} and the topic averages {topic_averages},
                 please provide a score out of 100. Judge the score based on how much better or worse from the base average, exactly base average should be around 50.
                 I'm trying to judge how the topic_average compares to the base_averages.
-                Your response should only be a number between 1-99
+                Your response should only be a number between 1-99     
                  ""","role": "user"}]
     response = completion(model="gpt-4", messages=messages, max_tokens=2, temperature=0)
     score = int(response["choices"][0]["message"]["content"])
@@ -257,23 +318,24 @@ def get_guage_score_analysis(base_averages, topic_averages, score, summary):
     return analysis
 
 def create_gauge_chart(score, title):
+    adjusted_score = score + 50
     return go.Figure(go.Indicator(
         mode="gauge+number",
-        value=score,
+        value=adjusted_score,
         domain={'x': [0, 1], 'y': [0, 1]},
         title={'text': title},
         gauge={
-            'axis': {'range': [None, 100]},
+            'axis': {'range': [None, 150]},
             'bar': {'color': "black", 'thickness': 0.1},
             'steps': [
-                {'range': [0, 33], 'color': 'red'},
-                {'range': [33, 66], 'color': 'yellow'},
-                {'range': [66, 100], 'color': 'green'},
+                {'range': [0, 50], 'color': 'red'},
+                {'range': [50, 100], 'color': 'yellow'},
+                {'range': [100, 150], 'color': 'green'},
             ],
             'threshold': {
                 'line': {'color': 'red', 'width': 4},
                 'thickness': 0.75,
-                'value': 90
+                'value': 140
             }
         }
     ))
@@ -303,8 +365,15 @@ def main():
             st.plotly_chart(brand_gauge_chart)
             brand_score_analysis = get_guage_score_analysis(base_averages, brand_averages, brand_gauge_score, brand_analysis)
             st.write(f'Brand Score Analysis: {brand_score_analysis}')
-            st.write('Brand Averages:')
-            st.json(brand_averages)
+            st.write('Base Averages vs Brand Averages:')
+            base_averages_df = pd.DataFrame(base_averages.items(), columns=['Metric', 'Base Average'])
+            brand_averages_df = pd.DataFrame(brand_averages.items(), columns=['Metric', 'Brand Average'])
+            combined_averages_df = pd.merge(base_averages_df, brand_averages_df, on='Metric')
+            st.table(combined_averages_df)
+            
+            st.title('Executive brand report')
+            report = creator_brand_analysis(brand_matching_posts, brand_averages, brand, creator_name)
+            st.write(report)
 
         if topic:
             topic_matching_posts, topic_averages = analyze_topic_performance(posts, topic)
@@ -318,16 +387,21 @@ def main():
             st.plotly_chart(topic_gauge_chart)
             topic_score_analysis = get_guage_score_analysis(base_averages, topic_averages, topic_gauge_score, topic_analysis)
             st.write(f'Topic Score Analysis: {topic_score_analysis}')
-            st.write('Topic Averages:')
-            st.json(topic_averages)
-
-        st.title('Average Statistics')
-        st.write('Base Averages:')
-        st.json(base_averages)
-        st.title('Overall Executive report')
-        report = creator_brand_category_analysis(linkedin_url,creator_name,brand,topic)
-        st.write(report)
+            st.write('Base Averages vs Topic Averages:')
+            base_averages_df = pd.DataFrame(base_averages.items(), columns=['Metric', 'Base Average'])
+            topic_averages_df = pd.DataFrame(topic_averages.items(), columns=['Metric', 'Topic Average'])
+            combined_averages_df = pd.merge(base_averages_df, topic_averages_df, on='Metric')
+            st.table(combined_averages_df)
+            
+            st.title('Executive topic report')
+            report = creator_topic_analysis(topic_matching_posts, topic_averages, topic, creator_name)
+            st.write(report)
 
 
 if __name__ == "__main__":
     main()
+
+#TODO 
+# bump scores by 50 
+# have the overall report more context based 
+# use only tagged posts 
